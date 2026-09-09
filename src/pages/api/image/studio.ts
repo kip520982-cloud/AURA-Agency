@@ -15,8 +15,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const instruction = String(Array.isArray(fields.instruction) ? fields.instruction[0] : fields.instruction || "");
   if (!process.env.CIVITAI_API_KEY) return res.status(500).json({ error: "Image service is not configured yet." });
   if (!source?.filepath) return res.status(400).json({ error: "A source photo is required." });
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const storageKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_AURABACKEND_SUPABASE_URL;
+  const storageKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.AURABACKEND_SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !storageKey) return res.status(500).json({ error: "Image storage is not configured." });
   const objectPath = `${Date.now()}-${source.originalFilename || "source-image"}`.replace(/[^a-zA-Z0-9._-]/g, "_");
   const bytes = await fs.readFile(source.filepath);
