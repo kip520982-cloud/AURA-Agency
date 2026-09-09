@@ -1,0 +1,20 @@
+.env
+.env.*
+!.env.example
+!.env.local.example
+.vercel
+.next
+node_modules
+tsconfig.tsbuildinfo
+.DS_Store
+.tmp-*
+
+# Local media/export scratch files
+*.mp4
+*.mov
+*.avi
+*.mp3
+*.wav
+*.m4a
+*.aiff
+*.flac

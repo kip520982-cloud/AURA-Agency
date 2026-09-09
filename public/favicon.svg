@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
+  <defs>
+    <linearGradient id="ff-tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FF8656"/>
+      <stop offset="55%" stop-color="#FF6B35"/>
+      <stop offset="100%" stop-color="#ED5218"/>
+    </linearGradient>
+  </defs>
+  <rect width="40" height="40" rx="11" fill="url(#ff-tile)"/>
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-width="2.6">
+    <path d="M8 15.5c3.4-3.1 6.3-3.1 8.8 0 2.9 3.6 6.2 3.6 9.9 0" opacity="0.55"/>
+    <path d="M8 21c3.4-3.4 6.5-3.4 9.3 0 3.1 3.8 6.6 3.8 10.5 0"/>
+    <path d="M8 26.8c3.4-3.6 6.7-3.6 9.8 0 3.3 4 7 4 11.2 0" opacity="0.55"/>
+  </g>
+  <circle cx="8" cy="21" r="2.6" fill="#27AE60"/>
+</svg>
