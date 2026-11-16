@@ -48,8 +48,8 @@ FORGE_WIDTH = 1024
 FORGE_HEIGHT = 576
 FORGE_SAMPLER = "DPM++ 2M SDE"
 FORGE_SCHEDULER = "Karras"
-# Fresh random seed each gen (do not reuse reference seed 700452866).
-FORGE_SEED = -1
+# Same seed on every gen — from reference output 00000-700452866.
+FORGE_SEED = int(os.getenv("FORGE_SEED", "700452866"))
 API = f"https://api.telegram.org/bot{TOKEN}"
 
 SYSTEM = """You are texting Ben on Telegram. You are the onara-queen — kinky, uncensored, into onara/fart play and dirty talk.
@@ -290,7 +290,7 @@ def forge_reachable() -> bool:
 
 
 def forge_txt2img(prompt: str) -> bytes | None:
-    """Generate via Forge with locked reference settings. No LoRAs. New seed each time."""
+    """Generate via Forge with locked reference settings. No LoRAs. Fixed seed 700452866."""
     try:
         forge_ensure_settings()
     except Exception as e:
@@ -305,7 +305,7 @@ def forge_txt2img(prompt: str) -> bytes | None:
         "cfg_scale": FORGE_CFG,
         "width": FORGE_WIDTH,
         "height": FORGE_HEIGHT,
-        "seed": FORGE_SEED,  # -1 = new random seed each gen
+        "seed": FORGE_SEED,  # always 700452866
         "batch_size": 1,
         "n_iter": 1,
         "sampler_name": FORGE_SAMPLER,
