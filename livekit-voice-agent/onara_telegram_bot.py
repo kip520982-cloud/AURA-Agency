@@ -6,8 +6,8 @@ One process. No LiveKit. No Gradio.
 
 Text replies are the default. Voice notes and pictures are opt-in when the user
 explicitly asks in that chat (e.g. "voice note", "send me a pic of that").
-Pics go through local Forge at FORGE_BASE using the locked settings from the
-successful reference gen `00000-700452866` (reaxl_v20_SDXL, GPU weights 2482 MB).
+Pics go through local Forge at FORGE_BASE using the locked settings below
+(BigLoveXL25, GPU weights 1794 MB / inference 22782 MB, fixed seed).
 """
 
 from __future__ import annotations
@@ -36,20 +36,21 @@ FISH_VOICE = os.getenv(
     "ONARA_FISH_VOICE", "8076d03f2ead4af2a99cc18a451000d1"
 )
 FORGE_BASE = (os.getenv("FORGE_BASE_URL") or "http://127.0.0.1:7865").rstrip("/")
-# Locked to reference output 00000-700452866 (png info / UserComment).
-FORGE_MODEL = os.getenv("FORGE_MODEL", "reaxl_v20_SDXL")
-FORGE_TOTAL_VRAM_MB = 24576  # 2482 + 22094 from their GPU Setting line
-# GPU Weights (MB) — 10.10% / 2482 MB weights, 89.90% / 22094 MB inference.
-FORGE_GPU_WEIGHT_MB = int(os.getenv("FORGE_GPU_WEIGHT_MB", "2482"))
-FORGE_INFERENCE_MEMORY_MB = FORGE_TOTAL_VRAM_MB - FORGE_GPU_WEIGHT_MB  # 22094
+# Locked Forge config (user-specified exact settings).
+FORGE_MODEL = os.getenv("FORGE_MODEL", "BigLoveXL25 (1)")  # hash 19447d345a
+FORGE_TOTAL_VRAM_MB = 24576  # 1794 + 22782
+# GPU Weights 7.30% = 1794 MB; inference 92.70% = 22782 MB.
+FORGE_GPU_WEIGHT_MB = int(os.getenv("FORGE_GPU_WEIGHT_MB", "1794"))
+FORGE_INFERENCE_MEMORY_MB = FORGE_TOTAL_VRAM_MB - FORGE_GPU_WEIGHT_MB  # 22782
 FORGE_STEPS = 16
 FORGE_CFG = 5.0
 FORGE_WIDTH = 1024
 FORGE_HEIGHT = 576
 FORGE_SAMPLER = "DPM++ 2M SDE"
 FORGE_SCHEDULER = "Karras"
-# Fresh random seed each generation (do not pin 700452866).
-FORGE_SEED = int(os.getenv("FORGE_SEED", "-1"))
+FORGE_NEGATIVE_PROMPT = "score_1,score_2,score_3"
+# Fixed seed on every gen.
+FORGE_SEED = int(os.getenv("FORGE_SEED", "588127716671905400"))
 API = f"https://api.telegram.org/bot{TOKEN}"
 
 SYSTEM = """You are texting Ben on Telegram. You are the onara-queen — kinky, uncensored, into onara/fart play and dirty talk.
@@ -290,22 +291,19 @@ def forge_reachable() -> bool:
 
 
 def forge_txt2img(prompt: str) -> bytes | None:
-    """Generate via Forge with locked reference settings. No LoRAs. Fresh seed each time."""
+    """Generate via Forge with locked settings. No LoRAs. Fixed seed every time."""
     try:
         forge_ensure_settings()
     except Exception as e:
         print(f"Forge options failed: {e}", flush=True)
     body = {
         "prompt": prompt,
-        "negative_prompt": (
-            "blurry, low quality, deformed, watermark, text, logo, "
-            "extra limbs, bad anatomy, cartoon, anime"
-        ),
+        "negative_prompt": FORGE_NEGATIVE_PROMPT,
         "steps": FORGE_STEPS,
         "cfg_scale": FORGE_CFG,
         "width": FORGE_WIDTH,
         "height": FORGE_HEIGHT,
-        "seed": FORGE_SEED,  # -1 = new random seed each gen
+        "seed": FORGE_SEED,  # always 588127716671905400
         "batch_size": 1,
         "n_iter": 1,
         "sampler_name": FORGE_SAMPLER,
@@ -468,7 +466,8 @@ def main() -> None:
                 f"gpu_weights={FORGE_GPU_WEIGHT_MB}MB "
                 f"inference={FORGE_INFERENCE_MEMORY_MB}MB "
                 f"{FORGE_WIDTH}x{FORGE_HEIGHT} steps={FORGE_STEPS} "
-                f"cfg={FORGE_CFG} sampler={FORGE_SAMPLER} sched={FORGE_SCHEDULER}",
+                f"cfg={FORGE_CFG} sampler={FORGE_SAMPLER} sched={FORGE_SCHEDULER} "
+                f"seed={FORGE_SEED}",
                 flush=True,
             )
         except Exception as e:
