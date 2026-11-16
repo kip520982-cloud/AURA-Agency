@@ -76,7 +76,7 @@ _PIC_ASK_RE = re.compile(
 
 _PIC_OF_RE = re.compile(
     r"(?i)(?:pic(?:ture)?|photo|image|shot|selfie)\s+of\s+(.+?)(?="
-    r"\s+(?:and\s+)?(?:send|show|give|also|voice|read)\b|[.!?]|)$"
+    r"\s+(?:and\s+)?(?:send|show|give|also|voice|read)\b|[.!?]|$)"
 )
 _DEIXIS_RE = re.compile(
     r"(?i)^(that|this|it|her|him|you|yourself|the\s+above|what\s+you\s+(?:just\s+)?(?:said|described))$"
