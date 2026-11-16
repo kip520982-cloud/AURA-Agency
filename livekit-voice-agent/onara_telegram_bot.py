@@ -6,7 +6,8 @@ One process. No LiveKit. No Gradio.
 
 Text replies are the default. Voice notes and pictures are opt-in when the user
 explicitly asks in that chat (e.g. "voice note", "send me a pic of that").
-Pics go through local Forge at FORGE_BASE (reaxl_v20_SDXL, GPU weight ≤2331, no LoRAs).
+Pics go through local Forge at FORGE_BASE using the locked settings from the
+successful reference gen `00000-700452866` (reaxl_v20_SDXL, GPU weights 2482 MB).
 """
 
 from __future__ import annotations
@@ -35,9 +36,20 @@ FISH_VOICE = os.getenv(
     "ONARA_FISH_VOICE", "8076d03f2ead4af2a99cc18a451000d1"
 )
 FORGE_BASE = (os.getenv("FORGE_BASE_URL") or "http://127.0.0.1:7865").rstrip("/")
+# Locked to reference output 00000-700452866 (png info / UserComment).
 FORGE_MODEL = os.getenv("FORGE_MODEL", "reaxl_v20_SDXL")
-# Forge UI "GPU Weights (MB)" for XL — never raise above this.
-FORGE_GPU_WEIGHT_MB = min(int(os.getenv("FORGE_GPU_WEIGHT_MB", "2331")), 2331)
+FORGE_TOTAL_VRAM_MB = 24576  # 2482 + 22094 from their GPU Setting line
+# GPU Weights (MB) — 10.10% / 2482 MB weights, 89.90% / 22094 MB inference.
+FORGE_GPU_WEIGHT_MB = int(os.getenv("FORGE_GPU_WEIGHT_MB", "2482"))
+FORGE_INFERENCE_MEMORY_MB = FORGE_TOTAL_VRAM_MB - FORGE_GPU_WEIGHT_MB  # 22094
+FORGE_STEPS = 16
+FORGE_CFG = 5.0
+FORGE_WIDTH = 1024
+FORGE_HEIGHT = 576
+FORGE_SAMPLER = "DPM++ 2M SDE"
+FORGE_SCHEDULER = "Karras"
+# Fresh random seed each gen (do not reuse reference seed 700452866).
+FORGE_SEED = -1
 API = f"https://api.telegram.org/bot{TOKEN}"
 
 SYSTEM = """You are texting Ben on Telegram. You are the onara-queen — kinky, uncensored, into onara/fart play and dirty talk.
@@ -250,12 +262,17 @@ def fish_tts(text: str) -> bytes | None:
 
 
 def forge_ensure_settings() -> None:
-    """Pin base model + GPU weight ≤2331; never raise weight."""
-    weight = min(FORGE_GPU_WEIGHT_MB, 2331)
+    """Pin model + GPU split from reference gen (2482 MB weights / 22094 MB compute)."""
     payload = {
         "sd_model_checkpoint": FORGE_MODEL,
-        "xl_GPU_MB": weight,
         "forge_preset": "xl",
+        "xl_GPU_MB": FORGE_GPU_WEIGHT_MB,
+        "forge_inference_memory": FORGE_INFERENCE_MEMORY_MB,
+        "xl_t2i_sampler": FORGE_SAMPLER,
+        "xl_t2i_scheduler": FORGE_SCHEDULER,
+        "xl_t2i_cfg": FORGE_CFG,
+        "xl_t2i_width": FORGE_WIDTH,
+        "xl_t2i_height": FORGE_HEIGHT,
     }
     with httpx.Client(timeout=60.0) as c:
         r = c.post(f"{FORGE_BASE}/sdapi/v1/options", json=payload)
@@ -273,8 +290,7 @@ def forge_reachable() -> bool:
 
 
 def forge_txt2img(prompt: str) -> bytes | None:
-    """Generate a low-res image via Forge. Base model only, no LoRAs, GPU weight capped."""
-    weight = min(FORGE_GPU_WEIGHT_MB, 2331)
+    """Generate via Forge with locked reference settings. No LoRAs. New seed each time."""
     try:
         forge_ensure_settings()
     except Exception as e:
@@ -285,24 +301,27 @@ def forge_txt2img(prompt: str) -> bytes | None:
             "blurry, low quality, deformed, watermark, text, logo, "
             "extra limbs, bad anatomy, cartoon, anime"
         ),
-        "steps": 20,
-        "cfg_scale": 5.0,
-        "width": 768,
-        "height": 768,
-        "seed": -1,
+        "steps": FORGE_STEPS,
+        "cfg_scale": FORGE_CFG,
+        "width": FORGE_WIDTH,
+        "height": FORGE_HEIGHT,
+        "seed": FORGE_SEED,  # -1 = new random seed each gen
         "batch_size": 1,
         "n_iter": 1,
-        "sampler_name": "Euler a",
+        "sampler_name": FORGE_SAMPLER,
+        "scheduler": FORGE_SCHEDULER,
         # No LoRAs / always-on extras.
         "script_name": None,
         "script_args": [],
         "alwayson_scripts": {},
         "override_settings": {
             "sd_model_checkpoint": FORGE_MODEL,
-            "xl_GPU_MB": weight,
             "forge_preset": "xl",
+            "xl_GPU_MB": FORGE_GPU_WEIGHT_MB,
+            "forge_inference_memory": FORGE_INFERENCE_MEMORY_MB,
         },
-        "override_settings_restore_afterwards": True,
+        # Keep the pinned GPU split after the call (do not snap back to a heavier load).
+        "override_settings_restore_afterwards": False,
     }
     try:
         with httpx.Client(timeout=300.0) as c:
@@ -446,7 +465,10 @@ def main() -> None:
             forge_ensure_settings()
             print(
                 f"Forge ok at {FORGE_BASE} — model={FORGE_MODEL} "
-                f"gpu_weight_mb<={FORGE_GPU_WEIGHT_MB}",
+                f"gpu_weights={FORGE_GPU_WEIGHT_MB}MB "
+                f"inference={FORGE_INFERENCE_MEMORY_MB}MB "
+                f"{FORGE_WIDTH}x{FORGE_HEIGHT} steps={FORGE_STEPS} "
+                f"cfg={FORGE_CFG} sampler={FORGE_SAMPLER} sched={FORGE_SCHEDULER}",
                 flush=True,
             )
         except Exception as e:
