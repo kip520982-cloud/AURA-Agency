@@ -7,7 +7,8 @@ One process. No LiveKit. No Gradio.
 Text replies are the default. Voice notes and pictures are opt-in when the user
 explicitly asks in that chat (e.g. "voice note", "send me a pic of that").
 Pics go through local Forge at FORGE_BASE using the locked settings below
-(BigLoveXL25, GPU weights 1794 MB / inference 22782 MB, fixed seed).
+(BigLoveXL25 + Subtle Poses LoRA subtle-cum-xl3 @ 0.65, GPU weights 1794 MB /
+inference 22782 MB, fixed seed). LoRA is prompt-tag only — GPU split unchanged.
 """
 
 from __future__ import annotations
@@ -51,7 +52,21 @@ FORGE_SCHEDULER = "Karras"
 FORGE_NEGATIVE_PROMPT = "score_1,score_2,score_3"
 # Fixed seed on every gen.
 FORGE_SEED = int(os.getenv("FORGE_SEED", "588127716671905400"))
+# Subtle Poses Cum XL3 (civitai modelVersionId=2013343). Samples ~0.5–0.75;
+# use 0.65. Prompt tag only — does NOT raise xl_GPU_MB (stay 1794 / 22782).
+FORGE_LORA = os.getenv("FORGE_LORA", "subtle-cum-xl3")
+FORGE_LORA_WEIGHT = float(os.getenv("FORGE_LORA_WEIGHT", "0.65"))
 API = f"https://api.telegram.org/bot{TOKEN}"
+
+
+def _with_forge_lora(prompt: str) -> str:
+    """Append locked Subtle Poses LoRA tag if missing. GPU split unchanged."""
+    tag = f"<lora:{FORGE_LORA}:{FORGE_LORA_WEIGHT:g}>"
+    text = (prompt or "").strip()
+    if f"<lora:{FORGE_LORA}:" in text:
+        return text
+    return f"{text}, {tag}" if text else tag
+
 
 SYSTEM = """You are texting Ben on Telegram. You are the onara-queen — kinky, uncensored, into onara/fart play and dirty talk.
 
@@ -291,11 +306,15 @@ def forge_reachable() -> bool:
 
 
 def forge_txt2img(prompt: str) -> bytes | None:
-    """Generate via Forge with locked settings. No LoRAs. Fixed seed every time."""
+    """Generate via Forge with locked settings + Subtle Poses LoRA. Fixed seed.
+
+    GPU weights stay 1794 MB / inference 22782 MB — LoRA is prompt-tag only.
+    """
     try:
         forge_ensure_settings()
     except Exception as e:
         print(f"Forge options failed: {e}", flush=True)
+    prompt = _with_forge_lora(prompt)
     body = {
         "prompt": prompt,
         "negative_prompt": FORGE_NEGATIVE_PROMPT,
@@ -308,7 +327,6 @@ def forge_txt2img(prompt: str) -> bytes | None:
         "n_iter": 1,
         "sampler_name": FORGE_SAMPLER,
         "scheduler": FORGE_SCHEDULER,
-        # No LoRAs / always-on extras.
         "script_name": None,
         "script_args": [],
         "alwayson_scripts": {},
@@ -463,6 +481,7 @@ def main() -> None:
             forge_ensure_settings()
             print(
                 f"Forge ok at {FORGE_BASE} — model={FORGE_MODEL} "
+                f"lora={FORGE_LORA}:{FORGE_LORA_WEIGHT:g} "
                 f"gpu_weights={FORGE_GPU_WEIGHT_MB}MB "
                 f"inference={FORGE_INFERENCE_MEMORY_MB}MB "
                 f"{FORGE_WIDTH}x{FORGE_HEIGHT} steps={FORGE_STEPS} "
